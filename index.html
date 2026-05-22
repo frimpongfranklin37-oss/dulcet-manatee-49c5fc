@@ -173,6 +173,12 @@
       <button class="pill" onclick="pillCmd('whoami')">whoami</button>
       <button class="pill" onclick="pillCmd('cat credentials.txt')">cat creds</button>
       <button class="pill" onclick="pillCmd('ls')">ls</button>
+      <button class="pill" onclick="pillCmd('sudo -l')">sudo -l</button>
+      <button class="pill" onclick="pillCmd('sudo apt update')">apt update</button>
+      <button class="pill" onclick="pillCmd('sudo apt upgrade')">apt upgrade</button>
+      <button class="pill" onclick="pillCmd('sudo apt install ')">apt install</button>
+      <button class="pill" onclick="pillCmd('sudo systemctl start ssh')">start ssh</button>
+      <button class="pill" onclick="pillCmd('sudo systemctl status ssh')">ssh status</button>
       <button class="pill" onclick="pillCmd('curl -v http://target.local')">curl</button>
       <button class="pill" onclick="pillCmd('curl -I http://target.local')">curl -I</button>
       <button class="pill" onclick="pillCmd('curl http://target.local/robots.txt')">curl robots</button>
@@ -382,7 +388,10 @@ const cmds = {
     {t:'  ── System ──────────────────────────────────',c:'yellow'},
     {t:'  whoami  id  hostname  uname -a  date',c:''},
     {t:'  ifconfig  netstat  ps  w  uptime',c:''},
-    {t:'  ls  cd  pwd  cat  echo  clear  history',c:''},{t:'',c:''},
+    {t:'  ls  cd  pwd  cat  echo  clear  history',c:''},
+    {t:'  sudo <cmd>   run as root',c:''},
+    {t:'  sudo -l      list sudo privileges',c:'dim'},
+    {t:'  apt update / upgrade / install / remove',c:''},{t:'',c:''},
     {t:'  ── Recon & Scanning ─────────────────────────',c:'yellow'},
     {t:'  nmap <target> [-sV] [-sC] [-A] [-O]',c:''},
     {t:'  nikto -h <target> [-p PORT]',c:''},
@@ -410,6 +419,155 @@ const cmds = {
     {t:'  linpeas    (privesc enumeration)',c:''},
     {t:'  nc -l PORT  /  nc HOST PORT  (netcat)',c:''},{t:'',c:''},
   ],
+  sudo:(a)=>{
+    if(!a.length) return [
+      {t:'usage: sudo [-u user] command',c:'yellow'},
+      {t:'  -u USER   run as specified user (default: root)',c:'dim'},
+      {t:'  -l        list allowed commands',c:'dim'},
+      {t:'  -s        run shell as root',c:'dim'},
+      {t:'  -i        simulate initial login shell',c:'dim'},
+      {t:'  -k        invalidate timestamp (require password next time)',c:'dim'},
+    ];
+
+    // sudo -l
+    if(a[0]==='-l') return [
+      {t:'Matching Defaults entries for kali on kali:',c:''},
+      {t:'    env_reset, mail_badpass,',c:'dim'},
+      {t:'    secure_path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',c:'dim'},
+      {t:'',c:''},
+      {t:'User kali may run the following commands on kali:',c:'cyan'},
+      {t:'    (ALL : ALL) ALL',c:'green'},
+      {t:'    (ALL) NOPASSWD: /usr/bin/nmap',c:'green'},
+      {t:'    (ALL) NOPASSWD: /usr/bin/python3',c:'green'},
+    ];
+
+    // sudo -s or sudo -i → root shell
+    if(a[0]==='-s'||a[0]==='-i') return [
+      {t:'[sudo] password for kali: ',c:'yellow'},
+      {t:'root@kali:/home/kali#',c:'green'},
+    ];
+
+    // sudo su
+    if(a[0]==='su') return [
+      {t:'root@kali:/home/kali# whoami',c:'dim'},
+      {t:'root',c:'green'},
+    ];
+
+    // sudo apt
+    if(a[0]==='apt'||a[0]==='apt-get'){
+      const sub=a[1]||'';
+      const pkg=a[2]||'package';
+      if(sub==='update') return [
+        {t:'[sudo] password for kali:',c:'yellow'},{t:'',c:''},
+        {t:'Hit:1 http://kali.download/kali kali-rolling InRelease',c:''},
+        {t:'Get:2 http://kali.download/kali kali-rolling/main amd64 Packages [19.8 MB]',c:''},
+        {t:'Get:3 http://kali.download/kali kali-rolling/contrib amd64 Packages [109 kB]',c:''},
+        {t:'Fetched 19.9 MB in 4s (4,975 kB/s)',c:''},
+        {t:'Reading package lists... Done',c:'green'},
+        {t:'Building dependency tree... Done',c:'green'},
+        {t:'Reading state information... Done',c:'green'},
+        {t:'142 packages can be upgraded. Run apt list --upgradable to see them.',c:'yellow'},
+      ];
+      if(sub==='upgrade') return [
+        {t:'[sudo] password for kali:',c:'yellow'},
+        {t:'Reading package lists... Done',c:''},
+        {t:'Building dependency tree... Done',c:''},
+        {t:'Calculating upgrade... Done',c:''},
+        {t:'The following packages will be upgraded:',c:'cyan'},
+        {t:'  metasploit-framework nmap nikto sqlmap hydra john',c:''},
+        {t:'6 upgraded, 0 newly installed, 0 to remove.',c:'green'},
+        {t:'Need to get 245 MB of archives.',c:''},
+        {t:'Do you want to continue? [Y/n] Y',c:'dim'},
+        {t:'Fetched 245 MB in 12s (20.4 MB/s)',c:''},
+        {t:'(Reading database ... 412053 files and directories currently installed.)',c:'dim'},
+        {t:'Preparing to unpack .../metasploit-framework_6.3.55_amd64.deb ...',c:''},
+        {t:'Unpacking metasploit-framework (6.3.55) ...',c:''},
+        {t:'Setting up metasploit-framework (6.3.55) ...',c:''},
+        {t:'Processing triggers for man-db ...',c:'dim'},
+        {t:'Done.',c:'green'},
+      ];
+      if(sub==='install') return [
+        {t:`[sudo] password for kali:`,c:'yellow'},
+        {t:`Reading package lists... Done`,c:''},
+        {t:`Building dependency tree... Done`,c:''},
+        {t:`The following NEW packages will be installed: ${pkg}`,c:'cyan'},
+        {t:`0 upgraded, 1 newly installed.`,c:''},
+        {t:`Need to get 12.4 MB of archives.`,c:''},
+        {t:`Do you want to continue? [Y/n] Y`,c:'dim'},
+        {t:`Get:1 http://kali.download/kali kali-rolling/main amd64 ${pkg} [12.4 MB]`,c:''},
+        {t:`Fetched 12.4 MB in 2s (6.2 MB/s)`,c:''},
+        {t:`Selecting previously unselected package ${pkg}.`,c:'dim'},
+        {t:`Unpacking ${pkg} ...`,c:''},
+        {t:`Setting up ${pkg} ...`,c:''},
+        {t:`${pkg} installed successfully.`,c:'green'},
+      ];
+      if(sub==='remove') return [
+        {t:`[sudo] password for kali:`,c:'yellow'},
+        {t:`Reading package lists... Done`,c:''},
+        {t:`The following packages will be REMOVED: ${pkg}`,c:'red'},
+        {t:`Do you want to continue? [Y/n] Y`,c:'dim'},
+        {t:`Removing ${pkg} ...`,c:''},
+        {t:`Done.`,c:'green'},
+      ];
+      return [{t:`apt: '${sub}' is not a recognized command`,c:'red'}];
+    }
+
+    // sudo chmod
+    if(a[0]==='chmod') return [
+      {t:`[sudo] password for kali:`,c:'yellow'},
+      {t:`chmod: mode changed for ${a[a.length-1]||'file'}`,c:'green'},
+    ];
+
+    // sudo chown
+    if(a[0]==='chown') return [
+      {t:`[sudo] password for kali:`,c:'yellow'},
+      {t:`chown: ownership changed for ${a[a.length-1]||'file'}`,c:'green'},
+    ];
+
+    // sudo passwd
+    if(a[0]==='passwd') return [
+      {t:'[sudo] password for kali:',c:'yellow'},
+      {t:'New password:',c:''},
+      {t:'Retype new password:',c:''},
+      {t:'passwd: password updated successfully',c:'green'},
+    ];
+
+    // sudo systemctl
+    if(a[0]==='systemctl'){
+      const action=a[1]||'status'; const svc=a[2]||'ssh';
+      if(action==='start'||action==='stop'||action==='restart') return [
+        {t:`[sudo] password for kali:`,c:'yellow'},
+        {t:`● ${svc}.service - OpenBSD Secure Shell server`,c:''},
+        {t:`   ${action==='stop'?'Stopped':'Started'} ${svc} service`,c:'green'},
+      ];
+      if(action==='status') return [
+        {t:`[sudo] password for kali:`,c:'yellow'},
+        {t:`● ${svc}.service - OpenBSD Secure Shell server`,c:''},
+        {t:`     Loaded: loaded (/lib/systemd/system/${svc}.service; enabled)`,c:''},
+        {t:`     Active: active (running) since ${new Date().toLocaleString()}`,c:'green'},
+        {t:`    Process: 1234 ExecStartPre=/usr/sbin/sshd -t (code=exited, status=0/SUCCESS)`,c:'dim'},
+        {t:`   Main PID: 1235 (sshd)`,c:''},
+      ];
+      return [{t:`[sudo] password for kali:`,c:'yellow'},{t:`systemctl: ${action} ${svc}`,c:'green'}];
+    }
+
+    // generic sudo <command> — just run it with sudo prefix
+    const subcmd = a[0];
+    if(cmds[subcmd]) {
+      const fakeAuth = [{t:'[sudo] password for kali: ',c:'yellow'}];
+      const result = cmds[subcmd](a.slice(1));
+      return [...fakeAuth, ...(result||[])];
+    }
+
+    return [
+      {t:`[sudo] password for kali: `,c:'yellow'},
+      {t:`sudo: ${a[0]}: command not found`,c:'red'},
+    ];
+  },
+
+  apt:(a)=>cmds.sudo(['apt',...a]),
+  'apt-get':(a)=>cmds.sudo(['apt-get',...a]),
+
   whoami:()=>[{t:'root',c:'green'}],
   id:    ()=>[{t:'uid=0(root) gid=0(root) groups=0(root)',c:''}],
   hostname:()=>[{t:'kali',c:''}],
